@@ -1,0 +1,248 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.chat-container {
+    background-color: #16213e;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    width: 95%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+    color: white;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 1.6em;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.status-indicator {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.connected {
+    background-color: #10b981;
+    color: white;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.status-indicator.disconnected {
+    background-color: #ef4444;
+    color: white;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+#crypto-inspector-toggle {
+    background-color: #e94560;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#crypto-inspector-toggle:hover {
+    background-color: #ff5470;
+    transform: translateY(-1px);
+}
+
+#crypto-inspector-toggle.active {
+    background-color: #00b894;
+    box-shadow: 0 0 10px rgba(0, 184, 148, 0.5);
+}
+
+.message-log {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #0f3460;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.message-log::-webkit-scrollbar {
+    width: 8px;
+}
+
+.message-log::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.message-log::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.message-item {
+    margin-bottom: 0;
+    padding: 10px 16px;
+    border-radius: 18px;
+    max-width: 75%;
+    word-wrap: break-word;
+    word-break: break-word;
+    line-height: 1.4;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message-item.sent {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message-item.received {
+    align-self: flex-start;
+    background-color: #e5e7eb;
+    color: #1f2937;
+    border-bottom-left-radius: 4px;
+}
+
+.message-item.system {
+    align-self: center;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    font-size: 0.85em;
+    max-width: 90%;
+    text-align: center;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    padding: 8px 16px;
+    border-radius: 20px;
+}
+
+.message-item.system-error {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px dashed rgba(239, 68, 68, 0.3);
+}
+
+.crypto-inspector {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75em;
+    border-left: 3px solid #e94560;
+    width: calc(100% - 32px);
+    max-width: calc(75% - 20px);
+    word-break: break-all;
+}
+
+.crypto-inspector .label {
+    color: #e94560;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.crypto-inspector .value {
+    color: #a5b4fc;
+    word-break: break-all;
+    display: block;
+}
+
+.message-input {
+    display: flex;
+    padding: 15px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #0f3460;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    gap: 10px;
+}
+
+.message-input input {
+    flex-grow: 1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 12px 18px;
+    font-size: 1em;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: white;
+    outline: none;
+    transition: border 0.3s ease;
+}
+
+.message-input input::placeholder {
+    color: #64748b;
+}
+
+.message-input input:focus {
+    border-color: #e94560;
+}
+
+.message-input button {
+    background: linear-gradient(135deg, #e94560 0%, #ff5470 100%);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.message-input button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+}
+
+.message-input button:active {
+    transform: translateY(0);
+}
