@@ -3,23 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E2EE Chat</title>
+    <title>E2EE PKI Chat</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="chat-container">
-        <div class="header">
-            <h1>E2EE Chat</h1>
-            <span id="connection-status" class="status-indicator disconnected">Disconnected</span>
-            <button id="crypto-inspector-toggle">Toggle Crypto Inspector</button>
-        </div>
-        <div class="message-log" id="message-log">
-            <!-- Messages will be appended here -->
-        </div>
-        <div class="message-input">
-            <input type="text" id="message-input" placeholder="Type your message...">
-            <button id="send-button">Send</button>
-        </div>
+    <div id="app-shell">
+        <section id="login-screen" class="screen active">
+            <div class="panel auth-panel">
+                <p class="eyebrow">Secure Multi-User Chat</p>
+                <h1>Join the PKI Network</h1>
+                <label for="username-input">Username</label>
+                <input id="username-input" type="text" maxlength="24" placeholder="Enter your username" autocomplete="off">
+                <button id="join-button" class="primary-btn">Generate Keys &amp; Join</button>
+            </div>
+        </section>
+
+        <section id="lobby-screen" class="screen hidden">
+            <div class="panel lobby-panel">
+                <div class="topbar">
+                    <div>
+                        <p class="eyebrow">Active users</p>
+                        <h2>Lobby</h2>
+                    </div>
+                    <span id="active-user-badge" class="user-badge">You</span>
+                </div>
+                <div id="active-users-list" class="user-list"></div>
+            </div>
+        </section>
+
+        <section id="chat-screen" class="screen hidden">
+            <div class="chat-container">
+                <div class="header">
+                    <div class="header-top-row">
+                        <button id="back-to-lobby" class="secondary-btn">Back to Lobby</button>
+                        <h1>Zero-Trust E2EE Chat</h1>
+                        <div class="status-badges">
+                            <span id="connection-status" class="status-indicator disconnected">Disconnected</span>
+                            <span id="fingerprint-badge" class="fingerprint-badge hidden">Safety Fingerprint: --</span>
+                        </div>
+                    </div>
+
+                    <div class="header-controls-row">
+                        <button id="crypto-inspector-toggle" class="toggle-btn">Crypto Inspector</button>
+                        <button id="mitm-toggle" class="toggle-btn">Simulate MITM Attack</button>
+                    </div>
+                </div>
+
+                <div class="chat-meta">
+                    <span id="chat-partner">No secure session</span>
+                </div>
+
+                <div class="message-log" id="message-log"></div>
+
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+                    <button id="send-button">Send</button>
+                </div>
+
+                <div class="wire-sniffer">
+                    <details open>
+                        <summary>Live Network Wire Sniffer</summary>
+                        <pre id="wire-sniffer-output">No network traffic yet.</pre>
+                    </details>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
