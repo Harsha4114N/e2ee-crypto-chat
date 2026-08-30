@@ -38,8 +38,8 @@ io.on('connection', (socket) => {
         console.log(`Registered user ${username} (${socket.id}) with ${activeUsers.length} active users`);
     });
 
-    socket.on('private-message', ({ recipientId, senderId, ciphertext, iv }) => {
-        if (!recipientId || !ciphertext || !iv) {
+    socket.on('private-message', ({ recipientId, senderId, ciphertext, iv, isPlaintext, message }) => {
+        if (!recipientId) {
             return;
         }
 
@@ -51,7 +51,9 @@ io.on('connection', (socket) => {
         recipientSocket.emit('private-message', {
             senderId: senderId || socket.id,
             ciphertext,
-            iv
+            iv,
+            isPlaintext: Boolean(isPlaintext),
+            message
         });
     });
 

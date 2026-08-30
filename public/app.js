@@ -28,25 +28,34 @@ function tamperCiphertext(base64Ciphertext) {
 
 const socket = io();
 
+const STORAGE_KEYS = {
+    userSession: 'e2ee_chat_user_session',
+    historyPrefix: 'chatHistory_'
+};
+
 const loginScreen = document.getElementById('login-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const chatScreen = document.getElementById('chat-screen');
 
 const usernameInput = document.getElementById('username-input');
 const joinButton = document.getElementById('join-button');
+const logoutButton = document.getElementById('logout-button');
 const activeUsersList = document.getElementById('active-users-list');
 const activeUserBadge = document.getElementById('active-user-badge');
 
 const messageLog = document.getElementById('message-log');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
+const clearChatButton = document.getElementById('clear-chat-button');
 const connectionStatus = document.getElementById('connection-status');
 const chatPartner = document.getElementById('chat-partner');
 const fingerprintBadge = document.getElementById('fingerprint-badge');
-const cryptoInspectorToggle = document.getElementById('crypto-inspector-toggle');
-const mitmToggle = document.getElementById('mitm-toggle');
+const securityToggle = document.getElementById('security-toggle');
+const hackerToggle = document.getElementById('hacker-toggle');
+const mathToggle = document.getElementById('math-toggle');
 const backToLobbyButton = document.getElementById('back-to-lobby');
 const wireSnifferOutput = document.getElementById('wire-sniffer-output');
+const toast = document.getElementById('demo-toast');
 
 const state = {
     activeUsers: [],
@@ -57,8 +66,9 @@ const state = {
     currentPeerId: null,
     currentPeerUsername: '',
     currentFingerprint: '',
-    mitmEnabled: false,
-    cryptoInspectorVisible: false,
+    securityEnabled: true,
+    hackerEnabled: false,
+    mathVisible: false,
     wireTrace: []
 };
 
@@ -75,19 +85,178 @@ function showScreen(screenName) {
     });
 }
 
+function sanitizeHistoryKey(peerName) {
+    return String(peerName || 'peer')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getHistoryStorageKey(peerName) {
+    return `${STORAGE_KEYS.historyPrefix}${sanitizeHistoryKey(peerName)}`;
+}
+
+function loadStoredUserSession() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEYS.userSession);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.username || !parsed.publicKeyJwk || !parsed.privateKeyJwk) {
+            return null;
+        }
+        return parsed;
+    } catch (error) {
+        console.error('Failed to read saved user session:', error);
+        return null;
+    }
+}
+
+function persistStoredUserSession(username, publicKeyJwk, privateKeyJwk) {
+    localStorage.setItem(STORAGE_KEYS.userSession, JSON.stringify({ username, publicKeyJwk, privateKeyJwk }));
+}
+
+function clearStoredUserSession() {
+    localStorage.removeItem(STORAGE_KEYS.userSession);
+}
+
+function loadStoredHistory(peerName) {
+    try {
+        const saved = localStorage.getItem(getHistoryStorageKey(peerName));
+        return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+        console.error('Failed to read saved chat history:', error);
+        return [];
+    }
+}
+
+function appendMessageToHistory(peerName, message, direction, ivBase64 = null, ciphertextBase64 = null) {
+    if (!peerName) {
+        return;
+    }
+
+    const key = getHistoryStorageKey(peerName);
+    const history = loadStoredHistory(peerName);
+    history.push({ message, direction, iv: ivBase64, ciphertext: ciphertextBase64 });
+    localStorage.setItem(key, JSON.stringify(history));
+}
+
+function clearPeerHistory(peerName) {
+    if (!peerName) {
+        return;
+    }
+    localStorage.removeItem(getHistoryStorageKey(peerName));
+}
+
+function renderHistoryForPeer(peerName) {
+    if (!peerName) {
+        messageLog.innerHTML = '';
+        return;
+    }
+
+    messageLog.innerHTML = '';
+    const history = loadStoredHistory(peerName);
+    history.forEach((entry) => {
+        displayMessage(entry.message, entry.direction === 'sent' ? 'sent' : 'received', entry.iv, entry.ciphertext);
+    });
+}
+
+async function restoreKeyPairFromStorage(userSession) {
+    if (!userSession) {
+        return null;
+    }
+
+    try {
+        const privateKey = await crypto.subtle.importKey(
+            'jwk',
+            userSession.privateKeyJwk,
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey']
+        );
+
+        const publicKey = await crypto.subtle.importKey(
+            'jwk',
+            userSession.publicKeyJwk,
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            []
+        );
+
+        return { privateKey, publicKey };
+    } catch (error) {
+        console.error('Failed to restore local key pair:', error);
+        return null;
+    }
+}
+
+async function autoLoginFromStorage() {
+    const userSession = loadStoredUserSession();
+    if (!userSession) {
+        return false;
+    }
+
+    try {
+        const restoredKeyPair = await restoreKeyPairFromStorage(userSession);
+        if (!restoredKeyPair) {
+            clearStoredUserSession();
+            return false;
+        }
+
+        state.localUsername = userSession.username;
+        state.localKeyPair = restoredKeyPair;
+        state.localPublicJwk = userSession.publicKeyJwk;
+        activeUserBadge.textContent = `You: ${userSession.username}`;
+        showScreen('lobby');
+        displayMessage(`Welcome back, ${userSession.username}.`, 'system');
+        return true;
+    } catch (error) {
+        console.error('Auto-login failed:', error);
+        clearStoredUserSession();
+        return false;
+    }
+}
+
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    window.clearTimeout(showToast.timeoutId);
+    showToast.timeoutId = window.setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
 function displayMessage(message, type, ivBase64 = null, ciphertextBase64 = null) {
     const div = document.createElement('div');
     div.classList.add('message-item', type);
-    div.textContent = message;
 
-    if (state.cryptoInspectorVisible && ivBase64 && ciphertextBase64) {
+    if (type === 'sent-plaintext' || type === 'received-plaintext') {
+        div.classList.add('plaintext-warning');
+    }
+
+    const textNode = document.createElement('div');
+    textNode.className = 'message-text';
+    textNode.textContent = message;
+    div.appendChild(textNode);
+
+    if (state.mathVisible && (ivBase64 || ciphertextBase64)) {
         const inspectorDiv = document.createElement('div');
         inspectorDiv.className = 'crypto-inspector';
+        const flowLabel = type === 'sent' || type === 'sent-plaintext' ? 'Encryption pipeline' : 'Decryption pipeline';
+        const leftTerm = type === 'sent' || type === 'sent-plaintext' ? 'Plaintext' : 'Ciphertext';
+        const rightTerm = type === 'sent' || type === 'sent-plaintext' ? 'Ciphertext' : 'Plaintext';
+
         inspectorDiv.innerHTML = `
-            <span class="label">Ciphertext (Base64):</span>
-            <span class="value">${ciphertextBase64}</span>
-            <span class="label">IV:</span>
-            <span class="value">${ivBase64}</span>
+            <div class="crypto-pipeline-title">${flowLabel}</div>
+            <div class="crypto-pipeline">
+                <span class="flow-term">${leftTerm}</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-box">[AES-GCM + IV + Shared Secret]</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-term">${rightTerm}</span>
+            </div>
+            <div class="crypto-meta">
+                <span><strong>IV:</strong> ${ivBase64 || 'n/a'}</span>
+                <span><strong>Ciphertext:</strong> ${ciphertextBase64 || 'n/a'}</span>
+            </div>
         `;
         div.appendChild(inspectorDiv);
     }
@@ -108,14 +277,22 @@ function updateConnectionStatus(isConnected) {
     }
 }
 
-function updateMitmToggle() {
-    mitmToggle.classList.toggle('active', state.mitmEnabled);
-    mitmToggle.textContent = `MITM: ${state.mitmEnabled ? 'On' : 'Off'}`;
+function updateSecurityToggle() {
+    securityToggle.classList.toggle('active', state.securityEnabled);
+    securityToggle.classList.toggle('inactive', !state.securityEnabled);
+    securityToggle.textContent = `E2EE Protocol: ${state.securityEnabled ? 'Enabled' : 'Disabled'}`;
 }
 
-function updateInspectorToggle() {
-    cryptoInspectorToggle.classList.toggle('active', state.cryptoInspectorVisible);
-    cryptoInspectorToggle.textContent = state.cryptoInspectorVisible ? 'Hide Crypto Inspector' : 'Toggle Crypto Inspector';
+function updateHackerToggle() {
+    hackerToggle.classList.toggle('active', state.hackerEnabled);
+    hackerToggle.classList.toggle('inactive', !state.hackerEnabled);
+    hackerToggle.textContent = `Simulate MITM Interception${state.hackerEnabled ? ': ON' : ': OFF'}`;
+}
+
+function updateMathToggle() {
+    mathToggle.classList.toggle('active', state.mathVisible);
+    mathToggle.classList.toggle('inactive', !state.mathVisible);
+    mathToggle.textContent = `Cryptographic Pipeline Visualizer${state.mathVisible ? ': ON' : ': OFF'}`;
 }
 
 function renderLobby() {
@@ -184,7 +361,9 @@ function logWirePacket(packet, direction = 'OUTBOUND') {
     const raw = {
         senderId: packet.senderId,
         iv: packet.iv,
-        ciphertext: packet.ciphertext
+        ciphertext: packet.ciphertext,
+        message: packet.message,
+        isPlaintext: packet.isPlaintext
     };
 
     state.wireTrace.unshift({ direction, packet: raw });
@@ -209,11 +388,14 @@ async function registerUser(username) {
         );
 
         const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
         state.localKeyPair = keyPair;
         state.localPublicJwk = publicKeyJwk;
         state.localUsername = username;
         activeUserBadge.textContent = `You: ${username}`;
 
+        persistStoredUserSession(username, publicKeyJwk, privateKeyJwk);
         socket.emit('register-user', { username, publicKey: publicKeyJwk });
         showScreen('lobby');
         displayMessage('Joined the PKI lobby.', 'system');
@@ -262,6 +444,7 @@ async function deriveSessionWithPeer(peerId) {
         state.currentFingerprint = await computeSafetyFingerprint(state.localPublicJwk, peer.publicKey);
         showScreen('chat');
         updateChatHeader();
+        renderHistoryForPeer(peer.username);
         displayMessage(`Secure session established automatically with ${peer.username}.`, 'system');
         return session;
     } catch (error) {
@@ -283,11 +466,20 @@ async function startSecureChat(peerId, peerName) {
     }
 
     messageInput.focus();
+    renderHistoryForPeer(peer.username);
     displayMessage(`Secure session established with ${peer.username}.`, 'system');
 }
 
 async function handleIncomingMessage(data) {
-    const { senderId, ciphertext, iv } = data;
+    const { senderId, ciphertext, iv, isPlaintext, message } = data;
+
+    if (isPlaintext && message) {
+        const renderedMessage = `${state.activeUsers.find((user) => user.id === senderId)?.username || 'Peer'}: ${message}`;
+        displayMessage(renderedMessage, 'received-plaintext', null, null);
+        appendMessageToHistory(state.currentPeerUsername || (state.activeUsers.find((user) => user.id === senderId)?.username || 'peer'), renderedMessage, 'received-plaintext', null, null);
+        return;
+    }
+
     let session = state.peerSessions.get(senderId);
 
     if (!session) {
@@ -308,7 +500,9 @@ async function handleIncomingMessage(data) {
         );
 
         const plaintext = new TextDecoder().decode(decryptedBuffer);
-        displayMessage(`${session.username}: ${plaintext}`, 'received');
+        const renderedMessage = `${session.username}: ${plaintext}`;
+        displayMessage(renderedMessage, 'received', iv, ciphertext);
+        appendMessageToHistory(session.username, renderedMessage, 'received', iv, ciphertext);
     } catch (error) {
         console.error('Decryption failed:', error);
         displayMessage('Failed to decrypt incoming message.', 'system-error');
@@ -326,12 +520,44 @@ joinButton.addEventListener('click', async () => {
     usernameInput.value = '';
 });
 
+logoutButton.addEventListener('click', () => {
+    clearStoredUserSession();
+    state.localUsername = '';
+    state.localKeyPair = null;
+    state.localPublicJwk = null;
+    state.peerSessions.clear();
+    state.currentPeerId = null;
+    state.currentPeerUsername = '';
+    updateChatHeader();
+    window.location.reload();
+});
+
 sendButton.addEventListener('click', async () => {
     const message = messageInput.value.trim();
     if (!message) return;
 
     if (!state.currentPeerId) {
         displayMessage('Select a peer from the lobby before sending a message.', 'system-error');
+        return;
+    }
+
+    const peerName = state.currentPeerUsername || 'peer';
+
+    if (!state.securityEnabled) {
+        const payload = {
+            senderId: socket.id,
+            recipientId: state.currentPeerId,
+            isPlaintext: true,
+            message
+        };
+
+        logWirePacket({ senderId: socket.id, message, isPlaintext: true }, 'OUTBOUND');
+        socket.emit('private-message', payload);
+
+        const renderedMessage = `You: ${message}`;
+        displayMessage(renderedMessage, 'sent-plaintext', null, null);
+        appendMessageToHistory(peerName, renderedMessage, 'sent-plaintext', null, null);
+        messageInput.value = '';
         return;
     }
 
@@ -353,7 +579,7 @@ sendButton.addEventListener('click', async () => {
         const ivBase64 = bufferToBase64(iv);
         let ciphertextBase64 = bufferToBase64(ciphertextBuffer);
 
-        if (state.mitmEnabled) {
+        if (state.hackerEnabled) {
             ciphertextBase64 = tamperCiphertext(ciphertextBase64);
         }
 
@@ -372,12 +598,25 @@ sendButton.addEventListener('click', async () => {
             ciphertext: ciphertextBase64
         });
 
-        displayMessage(`You: ${message}`, 'sent', ivBase64, ciphertextBase64);
+        const renderedMessage = `You: ${message}`;
+        displayMessage(renderedMessage, 'sent', ivBase64, ciphertextBase64);
+        appendMessageToHistory(peerName, renderedMessage, 'sent', ivBase64, ciphertextBase64);
         messageInput.value = '';
     } catch (error) {
         console.error('Encryption failed:', error);
         displayMessage('Unable to encrypt this message.', 'system-error');
     }
+});
+
+clearChatButton.addEventListener('click', () => {
+    if (!state.currentPeerUsername) {
+        displayMessage('No active peer to clear.', 'system-error');
+        return;
+    }
+
+    clearPeerHistory(state.currentPeerUsername);
+    messageLog.innerHTML = '';
+    displayMessage(`Chat history cleared for ${state.currentPeerUsername}.`, 'system');
 });
 
 messageInput.addEventListener('keydown', (event) => {
@@ -386,23 +625,49 @@ messageInput.addEventListener('keydown', (event) => {
     }
 });
 
-cryptoInspectorToggle.addEventListener('click', () => {
-    state.cryptoInspectorVisible = !state.cryptoInspectorVisible;
-    updateInspectorToggle();
+securityToggle.addEventListener('click', () => {
+    state.securityEnabled = !state.securityEnabled;
+    updateSecurityToggle();
+    showToast(state.securityEnabled ? 'E2EE Enabled: AES-GCM authenticated encryption active.' : 'E2EE Disabled: Transmitting insecure plaintext over the network.');
 });
 
-mitmToggle.addEventListener('click', () => {
-    state.mitmEnabled = !state.mitmEnabled;
-    updateMitmToggle();
+hackerToggle.addEventListener('click', () => {
+    state.hackerEnabled = !state.hackerEnabled;
+    updateHackerToggle();
+    showToast(state.hackerEnabled ? 'MITM Simulation Active: Injecting bit-flip errors during transit.' : 'MITM Simulation Inactive: Transit integrity remains unmodified.');
+});
+
+mathToggle.addEventListener('click', () => {
+    state.mathVisible = !state.mathVisible;
+    updateMathToggle();
+    showToast(state.mathVisible ? 'Visualizer Active: Displaying cryptographic transformations.' : 'Visualizer Inactive: Cryptographic transformations are hidden.');
+
+    if (state.currentPeerUsername) {
+        renderHistoryForPeer(state.currentPeerUsername);
+    }
 });
 
 backToLobbyButton.addEventListener('click', () => {
     showScreen('lobby');
+    state.peerSessions.clear();
+    state.currentPeerId = null;
+    state.currentPeerUsername = '';
+    updateChatHeader();
+    messageLog.innerHTML = '';
 });
 
-socket.on('connect', () => {
+socket.on('connect', async () => {
     updateConnectionStatus(true);
     console.log('Connected to server with ID:', socket.id);
+
+    if (state.localUsername && state.localKeyPair && state.localPublicJwk) {
+        socket.emit('register-user', { username: state.localUsername, publicKey: state.localPublicJwk });
+    } else {
+        const restored = await autoLoginFromStorage();
+        if (restored && state.localUsername && state.localPublicJwk) {
+            socket.emit('register-user', { username: state.localUsername, publicKey: state.localPublicJwk });
+        }
+    }
 });
 
 socket.on('disconnect', () => {
@@ -421,7 +686,7 @@ socket.on('active-users', (users) => {
     if (state.currentPeerId && !users.some((user) => user.id === state.currentPeerId)) {
         state.currentPeerId = null;
         state.currentPeerUsername = '';
-        state.peerSessions.delete(state.currentPeerId);
+        state.peerSessions.clear();
         updateChatHeader();
         showScreen('lobby');
         displayMessage('Peer left the lobby. Please choose another user.', 'system');
@@ -429,15 +694,27 @@ socket.on('active-users', (users) => {
 });
 
 socket.on('private-message', async (data) => {
-    if (data && data.senderId && data.iv && data.ciphertext) {
-        logWirePacket({ senderId: data.senderId, iv: data.iv, ciphertext: data.ciphertext }, 'INBOUND');
+    if (data && data.senderId) {
+        if (data.isPlaintext) {
+            logWirePacket({ senderId: data.senderId, message: data.message, isPlaintext: true }, 'INBOUND');
+        } else if (data.iv && data.ciphertext) {
+            logWirePacket({ senderId: data.senderId, iv: data.iv, ciphertext: data.ciphertext }, 'INBOUND');
+        }
     }
     await handleIncomingMessage(data);
 });
 
 showScreen('login');
 updateConnectionStatus(false);
-updateMitmToggle();
-updateInspectorToggle();
+updateSecurityToggle();
+updateHackerToggle();
+updateMathToggle();
 updateChatHeader();
 renderLobby();
+
+(async () => {
+    const restored = await autoLoginFromStorage();
+    if (!restored) {
+        showScreen('login');
+    }
+})();

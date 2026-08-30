@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="demo-toast" class="toast" aria-live="polite"></div>
     <div id="app-shell">
         <section id="login-screen" class="screen active">
             <div class="panel auth-panel">
@@ -25,7 +26,10 @@
                         <p class="eyebrow">Active users</p>
                         <h2>Lobby</h2>
                     </div>
-                    <span id="active-user-badge" class="user-badge">You</span>
+                    <div class="lobby-actions">
+                        <span id="active-user-badge" class="user-badge">You</span>
+                        <button id="logout-button" class="secondary-btn logout-btn">Logout</button>
+                    </div>
                 </div>
                 <div id="active-users-list" class="user-list"></div>
             </div>
@@ -44,8 +48,10 @@
                     </div>
 
                     <div class="header-controls-row">
-                        <button id="crypto-inspector-toggle" class="toggle-btn">Crypto Inspector</button>
-                        <button id="mitm-toggle" class="toggle-btn">Simulate MITM Attack</button>
+                        <button id="clear-chat-button" class="toggle-btn danger-btn">Clear Chat</button>
+                        <button id="security-toggle" class="toggle-btn active">E2EE Protocol: Enabled</button>
+                        <button id="hacker-toggle" class="toggle-btn">Simulate MITM Interception: OFF</button>
+                        <button id="math-toggle" class="toggle-btn">Cryptographic Pipeline Visualizer: OFF</button>
                     </div>
                 </div>
 
@@ -62,7 +68,7 @@
 
                 <div class="wire-sniffer">
                     <details open>
-                        <summary>Live Network Wire Sniffer</summary>
+                        <summary>Network Payload Analyzer</summary>
                         <pre id="wire-sniffer-output">No network traffic yet.</pre>
                     </details>
                 </div>

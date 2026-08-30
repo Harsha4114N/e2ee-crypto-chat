@@ -137,6 +137,13 @@ input {
     margin-bottom: 20px;
 }
 
+.lobby-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .user-badge {
     display: inline-flex;
     align-items: center;
@@ -147,6 +154,14 @@ input {
     color: #bbf7d0;
     border: 1px solid rgba(34, 197, 94, 0.35);
     font-weight: 700;
+}
+
+.logout-btn {
+    padding: 8px 12px;
+    min-width: 90px;
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #fecaca;
 }
 
 .user-list {
@@ -264,6 +279,45 @@ input {
     box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.toggle-btn.inactive {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.22);
+    color: #cbd5e1;
+}
+
+.danger-btn {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #fecaca;
+}
+
+.toast {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translate(-50%, -18px);
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.96);
+    color: #f8fafc;
+    border: 1px solid rgba(103, 232, 249, 0.4);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.45);
+    transition: all 0.25s ease;
+    z-index: 50;
+    max-width: min(88vw, 540px);
+    text-align: center;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
 .status-indicator {
     display: inline-flex;
     align-items: center;
@@ -352,6 +406,11 @@ input {
     animation: fadeIn 0.2s ease;
 }
 
+.message-text {
+    display: block;
+    font-weight: 500;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -363,6 +422,24 @@ input {
     color: white;
     border-color: rgba(96, 165, 250, 0.35);
     border-bottom-right-radius: 6px;
+}
+
+.message-item.sent-plaintext,
+.message-item.received-plaintext {
+    background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+    color: #4b2e00;
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 8px 18px rgba(217, 119, 6, 0.15);
+}
+
+.message-item.sent-plaintext {
+    align-self: flex-end;
+    border-bottom-right-radius: 6px;
+}
+
+.message-item.received-plaintext {
+    align-self: flex-start;
+    border-bottom-left-radius: 6px;
 }
 
 .message-item.received {
@@ -391,36 +468,81 @@ input {
     text-align: center;
 }
 
+.message-item.plaintext-warning {
+    border-left: 5px solid rgba(245, 158, 11, 0.9);
+}
+
 .crypto-inspector {
-    margin-top: 10px;
-    background: #0d1117;
+    margin-top: 12px;
+    background: rgba(2, 6, 23, 0.82);
     border: 1px solid rgba(244, 114, 182, 0.25);
-    border-left: 3px solid #f472b6;
-    border-radius: 10px;
+    border-left: 4px solid #f472b6;
+    border-radius: 12px;
     padding: 10px 12px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.74rem;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 0.76rem;
     color: #dbeafe;
-    word-break: break-all;
+    word-break: break-word;
     display: block;
     max-width: 100%;
     overflow: hidden;
 }
 
-.crypto-inspector .label {
+.crypto-pipeline-title {
     display: block;
     color: #f9a8d4;
     font-weight: 700;
-    margin-bottom: 4px;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
 }
 
-.crypto-inspector .value {
-    display: block;
+.crypto-pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    color: #f8fafc;
+}
+
+.flow-term,
+.flow-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    color: #dbeafe;
+    font-weight: 700;
+}
+
+.flow-box {
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(192, 132, 252, 0.35);
+    color: #e9d5ff;
+}
+
+.flow-arrow {
     color: #67e8f9;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.crypto-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #cbd5e1;
+    font-family: 'Consolas', 'Courier New', monospace;
     word-break: break-all;
-    margin-bottom: 2px;
+}
+
+.crypto-meta strong {
+    color: #f9a8d4;
 }
 
 .message-input {
