@@ -1,4 +1,3 @@
-// Base64 helpers for safe binary transport across Socket.io
 function bufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -29,32 +28,32 @@ function tamperCiphertext(base64Ciphertext) {
 const socket = io();
 
 const STORAGE_KEYS = {
-    userSession: 'e2ee_chat_user_session',
-    historyPrefix: 'chatHistory_'
+    userSession: 'securetalk_user_session',
+    historyPrefix: 'securetalk_history_'
 };
 
 const loginScreen = document.getElementById('login-screen');
-const lobbyScreen = document.getElementById('lobby-screen');
 const chatScreen = document.getElementById('chat-screen');
-
 const usernameInput = document.getElementById('username-input');
 const joinButton = document.getElementById('join-button');
-const logoutButton = document.getElementById('logout-button');
+const welcomeBackButton = document.getElementById('welcome-back-button');
+const differentUserButton = document.getElementById('different-user-button');
+const savedUserPanel = document.getElementById('saved-user-panel');
+const newUserForm = document.getElementById('new-user-form');
+const savedUsernameLabel = document.getElementById('saved-username-label');
+
 const activeUsersList = document.getElementById('active-users-list');
 const activeUserBadge = document.getElementById('active-user-badge');
-
 const messageLog = document.getElementById('message-log');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
-const clearChatButton = document.getElementById('clear-chat-button');
 const connectionStatus = document.getElementById('connection-status');
 const chatPartner = document.getElementById('chat-partner');
-const fingerprintBadge = document.getElementById('fingerprint-badge');
 const securityToggle = document.getElementById('security-toggle');
 const hackerToggle = document.getElementById('hacker-toggle');
-const mathToggle = document.getElementById('math-toggle');
-const backToLobbyButton = document.getElementById('back-to-lobby');
-const wireSnifferOutput = document.getElementById('wire-sniffer-output');
+const clearChatButton = document.getElementById('clear-chat-button');
+const logoutButton = document.getElementById('logout-button');
+const explanationCard = document.getElementById('explanation-card');
 const toast = document.getElementById('demo-toast');
 
 const state = {
@@ -65,17 +64,14 @@ const state = {
     peerSessions: new Map(),
     currentPeerId: null,
     currentPeerUsername: '',
-    currentFingerprint: '',
     securityEnabled: true,
     hackerEnabled: false,
-    mathVisible: false,
-    wireTrace: []
+    lastExplanation: null
 };
 
 function showScreen(screenName) {
     const screens = {
         login: loginScreen,
-        lobby: lobbyScreen,
         chat: chatScreen
     };
 
@@ -86,23 +82,36 @@ function showScreen(screenName) {
 }
 
 function sanitizeHistoryKey(peerName) {
-    return String(peerName || 'peer')
-        .trim()
-        .replace(/[^a-zA-Z0-9_-]/g, '_');
+    return String(peerName || 'peer').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 function getHistoryStorageKey(peerName) {
     return `${STORAGE_KEYS.historyPrefix}${sanitizeHistoryKey(peerName)}`;
 }
 
+function renderLoginState() {
+    const session = loadStoredUserSession();
+    const hasSavedUser = Boolean(session);
+    savedUserPanel.classList.toggle('hidden', !hasSavedUser);
+    newUserForm.classList.toggle('hidden', hasSavedUser);
+
+    if (hasSavedUser) {
+        savedUsernameLabel.textContent = session.username;
+    }
+}
+
 function loadStoredUserSession() {
     try {
         const raw = localStorage.getItem(STORAGE_KEYS.userSession);
-        if (!raw) return null;
+        if (!raw) {
+            return null;
+        }
+
         const parsed = JSON.parse(raw);
         if (!parsed || !parsed.username || !parsed.publicKeyJwk || !parsed.privateKeyJwk) {
             return null;
         }
+
         return parsed;
     } catch (error) {
         console.error('Failed to read saved user session:', error);
@@ -123,27 +132,19 @@ function loadStoredHistory(peerName) {
         const saved = localStorage.getItem(getHistoryStorageKey(peerName));
         return saved ? JSON.parse(saved) : [];
     } catch (error) {
-        console.error('Failed to read saved chat history:', error);
+        console.error('Failed to load stored history:', error);
         return [];
     }
 }
 
-function appendMessageToHistory(peerName, message, direction, ivBase64 = null, ciphertextBase64 = null) {
+function appendMessageToHistory(peerName, message, direction) {
     if (!peerName) {
         return;
     }
 
-    const key = getHistoryStorageKey(peerName);
     const history = loadStoredHistory(peerName);
-    history.push({ message, direction, iv: ivBase64, ciphertext: ciphertextBase64 });
-    localStorage.setItem(key, JSON.stringify(history));
-}
-
-function clearPeerHistory(peerName) {
-    if (!peerName) {
-        return;
-    }
-    localStorage.removeItem(getHistoryStorageKey(peerName));
+    history.push({ message, direction });
+    localStorage.setItem(getHistoryStorageKey(peerName), JSON.stringify(history));
 }
 
 function renderHistoryForPeer(peerName) {
@@ -155,8 +156,102 @@ function renderHistoryForPeer(peerName) {
     messageLog.innerHTML = '';
     const history = loadStoredHistory(peerName);
     history.forEach((entry) => {
-        displayMessage(entry.message, entry.direction === 'sent' ? 'sent' : 'received', entry.iv, entry.ciphertext);
+        const className = entry.direction === 'sent' ? 'sent' : 'received';
+        displayMessage(entry.message, className);
     });
+}
+
+function clearPeerHistory(peerName) {
+    if (!peerName) {
+        return;
+    }
+
+    localStorage.removeItem(getHistoryStorageKey(peerName));
+    messageLog.innerHTML = '';
+}
+
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    window.clearTimeout(showToast.timeoutId);
+    showToast.timeoutId = window.setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+function updateConnectionStatus(isConnected) {
+    connectionStatus.classList.toggle('connected', isConnected);
+    connectionStatus.classList.toggle('disconnected', !isConnected);
+    connectionStatus.textContent = isConnected ? 'Online' : 'Offline';
+}
+
+function updateToggleButtons() {
+    securityToggle.classList.toggle('active', state.securityEnabled);
+    securityToggle.textContent = `🔒 Secure Chat (Encryption)${state.securityEnabled ? '' : ' • OFF'}`;
+
+    hackerToggle.classList.toggle('active', state.hackerEnabled);
+    hackerToggle.textContent = `👾 Simulate Hacker Attack${state.hackerEnabled ? '' : ' • OFF'}`;
+}
+
+function displayMessage(message, type) {
+    const div = document.createElement('div');
+    div.classList.add('message-item', type);
+    div.textContent = message;
+    messageLog.appendChild(div);
+    messageLog.scrollTop = messageLog.scrollHeight;
+}
+
+function updateChatHeader() {
+    if (state.currentPeerId) {
+        chatPartner.textContent = state.currentPeerUsername;
+    } else {
+        chatPartner.textContent = 'Pick a person';
+    }
+}
+
+function createExplanationCard(mode, detailText) {
+    const card = document.getElementById('explanation-card');
+    card.className = `explanation-card ${mode}`;
+    card.innerHTML = detailText;
+}
+
+function updateExplanationCardForState() {
+    if (!state.lastExplanation) {
+        createExplanationCard('neutral', 'Choose a person to start a secure conversation.');
+        return;
+    }
+
+    const { mode, detailText } = state.lastExplanation;
+    createExplanationCard(mode, detailText);
+}
+
+function setExplanationForPlaintext(rawMessage) {
+    const safeText = String(rawMessage || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    state.lastExplanation = {
+        mode: 'danger',
+        detailText: `
+            <strong>Encryption is OFF.</strong> The message was sent as plain text.<br><br>
+            <strong>What the Hacker sees:</strong> ${safeText}<br><br>
+            <strong>Risk:</strong> Anyone observing the network can read the message instantly.
+        `
+    };
+    updateExplanationCardForState();
+}
+
+function setExplanationForEncrypted(ciphertext, originalMessage) {
+    const safeCiphertext = String(ciphertext || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeMessage = String(originalMessage || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    state.lastExplanation = {
+        mode: 'safe',
+        detailText: `
+            <strong>Encryption is ON.</strong> The message was locked before leaving the computer.<br><br>
+            <strong>What the Hacker sees:</strong> ${safeCiphertext}<br><br>
+            <strong>How it worked:</strong> ${safeMessage} + Secret Key = Unreadable Text.
+        `
+    };
+
+    updateExplanationCardForState();
 }
 
 async function restoreKeyPairFromStorage(userSession) {
@@ -183,200 +278,37 @@ async function restoreKeyPairFromStorage(userSession) {
 
         return { privateKey, publicKey };
     } catch (error) {
-        console.error('Failed to restore local key pair:', error);
+        console.error('Failed to restore session keypair:', error);
         return null;
     }
 }
 
-async function autoLoginFromStorage() {
+async function continueSavedSession() {
     const userSession = loadStoredUserSession();
     if (!userSession) {
-        return false;
-    }
-
-    try {
-        const restoredKeyPair = await restoreKeyPairFromStorage(userSession);
-        if (!restoredKeyPair) {
-            clearStoredUserSession();
-            return false;
-        }
-
-        state.localUsername = userSession.username;
-        state.localKeyPair = restoredKeyPair;
-        state.localPublicJwk = userSession.publicKeyJwk;
-        activeUserBadge.textContent = `You: ${userSession.username}`;
-        showScreen('lobby');
-        displayMessage(`Welcome back, ${userSession.username}.`, 'system');
-        return true;
-    } catch (error) {
-        console.error('Auto-login failed:', error);
-        clearStoredUserSession();
-        return false;
-    }
-}
-
-function showToast(message) {
-    toast.textContent = message;
-    toast.classList.add('show');
-    window.clearTimeout(showToast.timeoutId);
-    showToast.timeoutId = window.setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
-}
-
-function displayMessage(message, type, ivBase64 = null, ciphertextBase64 = null) {
-    const div = document.createElement('div');
-    div.classList.add('message-item', type);
-
-    if (type === 'sent-plaintext' || type === 'received-plaintext') {
-        div.classList.add('plaintext-warning');
-    }
-
-    const textNode = document.createElement('div');
-    textNode.className = 'message-text';
-    textNode.textContent = message;
-    div.appendChild(textNode);
-
-    if (state.mathVisible && (ivBase64 || ciphertextBase64)) {
-        const inspectorDiv = document.createElement('div');
-        inspectorDiv.className = 'crypto-inspector';
-        const flowLabel = type === 'sent' || type === 'sent-plaintext' ? 'Encryption pipeline' : 'Decryption pipeline';
-        const leftTerm = type === 'sent' || type === 'sent-plaintext' ? 'Plaintext' : 'Ciphertext';
-        const rightTerm = type === 'sent' || type === 'sent-plaintext' ? 'Ciphertext' : 'Plaintext';
-
-        inspectorDiv.innerHTML = `
-            <div class="crypto-pipeline-title">${flowLabel}</div>
-            <div class="crypto-pipeline">
-                <span class="flow-term">${leftTerm}</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-box">[AES-GCM + IV + Shared Secret]</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-term">${rightTerm}</span>
-            </div>
-            <div class="crypto-meta">
-                <span><strong>IV:</strong> ${ivBase64 || 'n/a'}</span>
-                <span><strong>Ciphertext:</strong> ${ciphertextBase64 || 'n/a'}</span>
-            </div>
-        `;
-        div.appendChild(inspectorDiv);
-    }
-
-    messageLog.appendChild(div);
-    messageLog.scrollTop = messageLog.scrollHeight;
-}
-
-function updateConnectionStatus(isConnected) {
-    if (isConnected) {
-        connectionStatus.classList.remove('disconnected');
-        connectionStatus.classList.add('connected');
-        connectionStatus.textContent = 'Connected';
-    } else {
-        connectionStatus.classList.remove('connected');
-        connectionStatus.classList.add('disconnected');
-        connectionStatus.textContent = 'Disconnected';
-    }
-}
-
-function updateSecurityToggle() {
-    securityToggle.classList.toggle('active', state.securityEnabled);
-    securityToggle.classList.toggle('inactive', !state.securityEnabled);
-    securityToggle.textContent = `E2EE Protocol: ${state.securityEnabled ? 'Enabled' : 'Disabled'}`;
-}
-
-function updateHackerToggle() {
-    hackerToggle.classList.toggle('active', state.hackerEnabled);
-    hackerToggle.classList.toggle('inactive', !state.hackerEnabled);
-    hackerToggle.textContent = `Simulate MITM Interception${state.hackerEnabled ? ': ON' : ': OFF'}`;
-}
-
-function updateMathToggle() {
-    mathToggle.classList.toggle('active', state.mathVisible);
-    mathToggle.classList.toggle('inactive', !state.mathVisible);
-    mathToggle.textContent = `Cryptographic Pipeline Visualizer${state.mathVisible ? ': ON' : ': OFF'}`;
-}
-
-function renderLobby() {
-    const peers = state.activeUsers.filter((user) => user.id !== socket.id);
-
-    if (peers.length === 0) {
-        activeUsersList.innerHTML = '<div class="user-card"><div><h3>No peers online</h3><span>Invite someone to join the PKI chat.</span></div></div>';
         return;
     }
 
-    activeUsersList.innerHTML = '';
-
-    peers.forEach((user) => {
-        const card = document.createElement('div');
-        card.className = 'user-card';
-        card.innerHTML = `
-            <div>
-                <h3>${user.username}</h3>
-                <span>Public key ready</span>
-            </div>
-            <button class="user-action-btn" data-peer-id="${user.id}" data-peer-name="${user.username}">Start Secure Chat</button>
-        `;
-        activeUsersList.appendChild(card);
-    });
-
-    activeUsersList.querySelectorAll('.user-action-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-            startSecureChat(button.dataset.peerId, button.dataset.peerName);
-        });
-    });
-}
-
-function updateChatHeader() {
-    if (state.currentPeerId) {
-        chatPartner.textContent = `Secure chat with ${state.currentPeerUsername}`;
-        fingerprintBadge.textContent = state.currentFingerprint ? `Fingerprint: ${state.currentFingerprint}` : 'Fingerprint: pending';
-        fingerprintBadge.classList.remove('hidden');
-    } else {
-        chatPartner.textContent = 'No secure session';
-        fingerprintBadge.textContent = 'Fingerprint: --';
-        fingerprintBadge.classList.add('hidden');
-    }
-}
-
-async function computeSafetyFingerprint(localPublicKey, peerPublicKey) {
-    if (!localPublicKey || !peerPublicKey) {
-        return '';
+    const restored = await restoreKeyPairFromStorage(userSession);
+    if (!restored) {
+        clearStoredUserSession();
+        renderLoginState();
+        return;
     }
 
-    const hashInput = [
-        JSON.stringify(localPublicKey),
-        JSON.stringify(peerPublicKey)
-    ].sort().join('|');
-
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(hashInput));
-    const hex = Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase();
-
-    const short = hex.slice(0, 6);
-    return short.length > 3 ? `${short.slice(0, 3)}-${short.slice(3)}` : short;
-}
-
-function logWirePacket(packet, direction = 'OUTBOUND') {
-    const raw = {
-        senderId: packet.senderId,
-        iv: packet.iv,
-        ciphertext: packet.ciphertext,
-        message: packet.message,
-        isPlaintext: packet.isPlaintext
-    };
-
-    state.wireTrace.unshift({ direction, packet: raw });
-    state.wireTrace = state.wireTrace.slice(0, 6);
-
-    wireSnifferOutput.textContent = state.wireTrace
-        .map((entry) => `${entry.direction}\n${JSON.stringify(entry.packet, null, 2)}`)
-        .join('\n\n');
+    state.localUsername = userSession.username;
+    state.localKeyPair = restored;
+    state.localPublicJwk = userSession.publicKeyJwk;
+    activeUserBadge.textContent = `You: ${userSession.username}`;
+    showScreen('chat');
+    displayMessage(`Welcome back, ${userSession.username}.`, 'system');
+    updateConnectionStatus(socket.connected);
+    renderActiveUsers();
 }
 
 async function registerUser(username) {
     if (!window.crypto || !window.crypto.subtle) {
-        displayMessage('Web Crypto is not supported in this browser.', 'system-error');
+        displayMessage('Your browser does not support Web Crypto.', 'system-error');
         return;
     }
 
@@ -390,19 +322,54 @@ async function registerUser(username) {
         const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
         const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
+        state.localUsername = username.trim();
         state.localKeyPair = keyPair;
         state.localPublicJwk = publicKeyJwk;
-        state.localUsername = username;
-        activeUserBadge.textContent = `You: ${username}`;
+        activeUserBadge.textContent = `You: ${state.localUsername}`;
 
-        persistStoredUserSession(username, publicKeyJwk, privateKeyJwk);
-        socket.emit('register-user', { username, publicKey: publicKeyJwk });
-        showScreen('lobby');
-        displayMessage('Joined the PKI lobby.', 'system');
+        persistStoredUserSession(state.localUsername, publicKeyJwk, privateKeyJwk);
+        renderLoginState();
+        showScreen('chat');
+        displayMessage(`Joined as ${state.localUsername}.`, 'system');
+        updateChatHeader();
+        renderActiveUsers();
+        socket.emit('register-user', { username: state.localUsername, publicKey: publicKeyJwk });
     } catch (error) {
-        console.error('Key generation failed:', error);
-        displayMessage('Unable to generate keys for secure chat.', 'system-error');
+        console.error('Registration failed:', error);
+        displayMessage('Unable to set up your secure identity.', 'system-error');
     }
+}
+
+function renderActiveUsers() {
+    const peers = state.activeUsers.filter((user) => user.id !== socket.id);
+    activeUsersList.innerHTML = '';
+
+    if (peers.length === 0) {
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'person-card';
+        emptyCard.innerHTML = '<div><h3>No one online</h3><span>Wait for another participant to join.</span></div>';
+        activeUsersList.appendChild(emptyCard);
+        return;
+    }
+
+    peers.forEach((user) => {
+        const card = document.createElement('div');
+        card.className = 'person-card';
+        card.innerHTML = `
+            <div>
+                <h3>${user.username}</h3>
+                <span>Ready to chat</span>
+            </div>
+            <button class="user-action-btn" data-peer-id="${user.id}" data-peer-name="${user.username}">Chat</button>
+        `;
+        activeUsersList.appendChild(card);
+    });
+
+    activeUsersList.querySelectorAll('.user-action-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            startSecureChat(button.dataset.peerId, button.dataset.peerName);
+        });
+    });
 }
 
 async function deriveSessionWithPeer(peerId) {
@@ -434,21 +401,17 @@ async function deriveSessionWithPeer(peerId) {
 
         const session = {
             username: peer.username,
-            sharedSecret,
-            publicKey: peerPublicKey
+            sharedSecret
         };
 
         state.peerSessions.set(peerId, session);
         state.currentPeerId = peerId;
         state.currentPeerUsername = peer.username;
-        state.currentFingerprint = await computeSafetyFingerprint(state.localPublicJwk, peer.publicKey);
-        showScreen('chat');
         updateChatHeader();
         renderHistoryForPeer(peer.username);
-        displayMessage(`Secure session established automatically with ${peer.username}.`, 'system');
         return session;
     } catch (error) {
-        console.error('Session derivation failed:', error);
+        console.error('Failed to derive peer session:', error);
         return null;
     }
 }
@@ -459,111 +422,73 @@ async function startSecureChat(peerId, peerName) {
         return;
     }
 
+    state.currentPeerId = peerId;
+    state.currentPeerUsername = peerName;
+    updateChatHeader();
+
     const session = await deriveSessionWithPeer(peerId);
     if (!session) {
-        displayMessage('Failed to establish a secure session with this peer.', 'system-error');
+        displayMessage('Unable to start a secure session with this user.', 'system-error');
         return;
     }
 
     messageInput.focus();
-    renderHistoryForPeer(peer.username);
-    displayMessage(`Secure session established with ${peer.username}.`, 'system');
+    displayMessage(`Connected with ${peerName}.`, 'system');
 }
 
-async function handleIncomingMessage(data) {
-    const { senderId, ciphertext, iv, isPlaintext, message } = data;
-
-    if (isPlaintext && message) {
-        const renderedMessage = `${state.activeUsers.find((user) => user.id === senderId)?.username || 'Peer'}: ${message}`;
-        displayMessage(renderedMessage, 'received-plaintext', null, null);
-        appendMessageToHistory(state.currentPeerUsername || (state.activeUsers.find((user) => user.id === senderId)?.username || 'peer'), renderedMessage, 'received-plaintext', null, null);
+function emitToggleState(toggle, enabled) {
+    if (!state.currentPeerId) {
         return;
     }
 
-    let session = state.peerSessions.get(senderId);
+    socket.emit('toggle-sync', {
+        recipientId: state.currentPeerId,
+        senderId: socket.id,
+        toggle,
+        enabled
+    });
+}
 
-    if (!session) {
-        session = await deriveSessionWithPeer(senderId);
-        if (!session) {
-            displayMessage('Received encrypted data from an untrusted peer.', 'system-error');
-            return;
+function applyRemoteToggle(toggle, enabled) {
+    if (toggle === 'security') {
+        state.securityEnabled = Boolean(enabled);
+        if (!state.securityEnabled) {
+            state.hackerEnabled = false;
         }
     }
 
-    try {
-        const ivBuffer = base64ToBuffer(iv);
-        const ciphertextBuffer = base64ToBuffer(ciphertext);
-        const decryptedBuffer = await crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: ivBuffer },
-            session.sharedSecret,
-            ciphertextBuffer
-        );
-
-        const plaintext = new TextDecoder().decode(decryptedBuffer);
-        const renderedMessage = `${session.username}: ${plaintext}`;
-        displayMessage(renderedMessage, 'received', iv, ciphertext);
-        appendMessageToHistory(session.username, renderedMessage, 'received', iv, ciphertext);
-    } catch (error) {
-        console.error('Decryption failed:', error);
-        displayMessage('Failed to decrypt incoming message.', 'system-error');
+    if (toggle === 'hacker') {
+        if (!state.securityEnabled) {
+            state.hackerEnabled = false;
+        } else {
+            state.hackerEnabled = Boolean(enabled);
+        }
     }
+
+    updateToggleButtons();
+    showToast(`Peer updated ${toggle === 'security' ? 'Secure Chat' : 'Hacker Attack'} to ${state[toggle === 'security' ? 'securityEnabled' : 'hackerEnabled'] ? 'ON' : 'OFF'}.`);
+    updateExplanationCardForState();
 }
 
-joinButton.addEventListener('click', async () => {
-    const username = usernameInput.value.trim();
-    if (!username) {
-        alert('Please enter a username.');
-        return;
-    }
+function handlePlaintextSend(message) {
+    const payload = {
+        senderId: socket.id,
+        recipientId: state.currentPeerId,
+        isPlaintext: true,
+        message
+    };
 
-    await registerUser(username);
-    usernameInput.value = '';
-});
+    socket.emit('private-message', payload);
+    displayMessage(`You: ${message}`, 'sent-plaintext');
+    appendMessageToHistory(state.currentPeerUsername, `You: ${message}`, 'sent');
+    setExplanationForPlaintext(message);
+    messageInput.value = '';
+}
 
-logoutButton.addEventListener('click', () => {
-    clearStoredUserSession();
-    state.localUsername = '';
-    state.localKeyPair = null;
-    state.localPublicJwk = null;
-    state.peerSessions.clear();
-    state.currentPeerId = null;
-    state.currentPeerUsername = '';
-    updateChatHeader();
-    window.location.reload();
-});
-
-sendButton.addEventListener('click', async () => {
-    const message = messageInput.value.trim();
-    if (!message) return;
-
-    if (!state.currentPeerId) {
-        displayMessage('Select a peer from the lobby before sending a message.', 'system-error');
-        return;
-    }
-
-    const peerName = state.currentPeerUsername || 'peer';
-
-    if (!state.securityEnabled) {
-        const payload = {
-            senderId: socket.id,
-            recipientId: state.currentPeerId,
-            isPlaintext: true,
-            message
-        };
-
-        logWirePacket({ senderId: socket.id, message, isPlaintext: true }, 'OUTBOUND');
-        socket.emit('private-message', payload);
-
-        const renderedMessage = `You: ${message}`;
-        displayMessage(renderedMessage, 'sent-plaintext', null, null);
-        appendMessageToHistory(peerName, renderedMessage, 'sent-plaintext', null, null);
-        messageInput.value = '';
-        return;
-    }
-
+async function handleEncryptedSend(message) {
     const session = state.peerSessions.get(state.currentPeerId);
     if (!session) {
-        displayMessage('No secure session is active for this peer.', 'system-error');
+        displayMessage('Secure channel is not ready yet.', 'system-error');
         return;
     }
 
@@ -576,47 +501,188 @@ sendButton.addEventListener('click', async () => {
             encodedMessage
         );
 
-        const ivBase64 = bufferToBase64(iv);
         let ciphertextBase64 = bufferToBase64(ciphertextBuffer);
-
         if (state.hackerEnabled) {
             ciphertextBase64 = tamperCiphertext(ciphertextBase64);
         }
 
-        const payload = {
-            senderId: socket.id,
-            iv: ivBase64,
-            ciphertext: ciphertextBase64
-        };
-
-        logWirePacket(payload, 'OUTBOUND');
-
         socket.emit('private-message', {
             recipientId: state.currentPeerId,
             senderId: socket.id,
-            iv: ivBase64,
+            iv: bufferToBase64(iv),
             ciphertext: ciphertextBase64
         });
 
-        const renderedMessage = `You: ${message}`;
-        displayMessage(renderedMessage, 'sent', ivBase64, ciphertextBase64);
-        appendMessageToHistory(peerName, renderedMessage, 'sent', ivBase64, ciphertextBase64);
+        displayMessage(`You: ${message}`, 'sent');
+        appendMessageToHistory(state.currentPeerUsername, `You: ${message}`, 'sent');
+        setExplanationForEncrypted(ciphertextBase64, message);
         messageInput.value = '';
     } catch (error) {
         console.error('Encryption failed:', error);
         displayMessage('Unable to encrypt this message.', 'system-error');
     }
+}
+
+async function handleIncomingMessage(data) {
+    if (!data || !data.senderId) {
+        return;
+    }
+
+    const incomingData = data;
+    const senderUsername = state.activeUsers.find((user) => user.id === incomingData.senderId)?.username || 'Peer';
+
+    if (incomingData.isPlaintext) {
+        const renderedMessage = `${senderUsername}: ${incomingData.message || ''}`;
+        displayMessage(renderedMessage, 'received-plaintext');
+        appendMessageToHistory(state.currentPeerUsername || senderUsername, renderedMessage, 'received');
+        setExplanationForPlaintext(incomingData.message);
+        return;
+    }
+
+    let session = state.peerSessions.get(incomingData.senderId);
+    if (!session) {
+        session = await deriveSessionWithPeer(incomingData.senderId);
+    }
+
+    if (!session) {
+        displayMessage('The incoming message could not be verified.', 'system-error');
+        return;
+    }
+
+    try {
+        const ivBuffer = base64ToBuffer(incomingData.iv);
+        const ciphertextBuffer = base64ToBuffer(incomingData.ciphertext);
+        const decryptedBytes = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: ivBuffer },
+            session.sharedSecret,
+            ciphertextBuffer
+        );
+
+        const plaintext = new TextDecoder().decode(decryptedBytes);
+        const renderedMessage = `${senderUsername}: ${plaintext}`;
+        displayMessage(renderedMessage, 'received');
+        appendMessageToHistory(state.currentPeerUsername || senderUsername, renderedMessage, 'received');
+        setExplanationForEncrypted(incomingData.ciphertext, plaintext);
+    } catch (error) {
+        console.error('Decryption failed:', error);
+        displayMessage('The encrypted message was rejected.', 'system-error');
+        state.lastExplanation = {
+            mode: 'warning',
+            detailText: '<strong>Hacker tampered with the locked message in transit!</strong> Because the lock was broken, the receiver\'s phone rejected it automatically.'
+        };
+        updateExplanationCardForState();
+    }
+}
+
+joinButton.addEventListener('click', async () => {
+    const username = usernameInput.value.trim();
+    if (!username) {
+        alert('Please enter a name first.');
+        return;
+    }
+
+    await registerUser(username);
+    usernameInput.value = '';
+});
+
+welcomeBackButton.addEventListener('click', async () => {
+    await continueSavedSession();
+});
+
+differentUserButton.addEventListener('click', () => {
+    clearStoredUserSession();
+    renderLoginState();
+    usernameInput.value = '';
+    usernameInput.focus();
 });
 
 clearChatButton.addEventListener('click', () => {
     if (!state.currentPeerUsername) {
-        displayMessage('No active peer to clear.', 'system-error');
+        showToast('Chat history cleared.');
         return;
     }
 
     clearPeerHistory(state.currentPeerUsername);
+    showToast('Chat history cleared.');
+});
+
+logoutButton.addEventListener('click', () => {
+    clearStoredUserSession();
+    state.localUsername = '';
+    state.localKeyPair = null;
+    state.localPublicJwk = null;
+    state.peerSessions.clear();
+    state.currentPeerId = null;
+    state.currentPeerUsername = '';
+    updateChatHeader();
     messageLog.innerHTML = '';
-    displayMessage(`Chat history cleared for ${state.currentPeerUsername}.`, 'system');
+    state.lastExplanation = null;
+    updateExplanationCardForState();
+    window.location.reload();
+});
+
+securityToggle.addEventListener('click', () => {
+    const nextSecurityState = !state.securityEnabled;
+    state.securityEnabled = nextSecurityState;
+
+    if (!state.securityEnabled) {
+        state.hackerEnabled = false;
+    }
+
+    updateToggleButtons();
+    emitToggleState('security', state.securityEnabled);
+    if (!state.securityEnabled) {
+        emitToggleState('hacker', false);
+    }
+    showToast(state.securityEnabled ? 'E2EE Enabled: AES-GCM authenticated encryption active.' : 'E2EE Disabled: Transmitting insecure plaintext over the network.');
+
+    if (!state.currentPeerId) {
+        state.lastExplanation = state.securityEnabled ? {
+            mode: 'safe',
+            detailText: '<strong>Encryption is ON.</strong> The message was locked before leaving the computer.'
+        } : {
+            mode: 'danger',
+            detailText: '<strong>Encryption is OFF.</strong> The message was sent as plain text.'
+        };
+        updateExplanationCardForState();
+    }
+});
+
+hackerToggle.addEventListener('click', () => {
+    if (!state.securityEnabled) {
+        state.hackerEnabled = false;
+        updateToggleButtons();
+        showToast('Turn on Secure Chat before simulating a hacker attack.');
+        return;
+    }
+
+    state.hackerEnabled = !state.hackerEnabled;
+    updateToggleButtons();
+    emitToggleState('hacker', state.hackerEnabled);
+    showToast(state.hackerEnabled ? 'MITM Simulation Active: Injecting bit-flip errors during transit.' : 'MITM Simulation Inactive: Transit integrity remains unmodified.');
+
+    if (state.lastExplanation && state.lastExplanation.mode === 'safe') {
+        setExplanationForEncrypted('ciphertext example', 'sample message');
+    }
+});
+
+sendButton.addEventListener('click', async () => {
+    const message = messageInput.value.trim();
+    if (!message) {
+        return;
+    }
+
+    if (!state.currentPeerId) {
+        displayMessage('Choose a person before sending a message.', 'system-error');
+        return;
+    }
+
+    if (!state.securityEnabled) {
+        handlePlaintextSend(message);
+        return;
+    }
+
+    await handleEncryptedSend(message);
 });
 
 messageInput.addEventListener('keydown', (event) => {
@@ -625,96 +691,68 @@ messageInput.addEventListener('keydown', (event) => {
     }
 });
 
-securityToggle.addEventListener('click', () => {
-    state.securityEnabled = !state.securityEnabled;
-    updateSecurityToggle();
-    showToast(state.securityEnabled ? 'E2EE Enabled: AES-GCM authenticated encryption active.' : 'E2EE Disabled: Transmitting insecure plaintext over the network.');
-});
-
-hackerToggle.addEventListener('click', () => {
-    state.hackerEnabled = !state.hackerEnabled;
-    updateHackerToggle();
-    showToast(state.hackerEnabled ? 'MITM Simulation Active: Injecting bit-flip errors during transit.' : 'MITM Simulation Inactive: Transit integrity remains unmodified.');
-});
-
-mathToggle.addEventListener('click', () => {
-    state.mathVisible = !state.mathVisible;
-    updateMathToggle();
-    showToast(state.mathVisible ? 'Visualizer Active: Displaying cryptographic transformations.' : 'Visualizer Inactive: Cryptographic transformations are hidden.');
-
-    if (state.currentPeerUsername) {
-        renderHistoryForPeer(state.currentPeerUsername);
-    }
-});
-
-backToLobbyButton.addEventListener('click', () => {
-    showScreen('lobby');
-    state.peerSessions.clear();
-    state.currentPeerId = null;
-    state.currentPeerUsername = '';
-    updateChatHeader();
-    messageLog.innerHTML = '';
-});
-
-socket.on('connect', async () => {
+socket.on('connect', () => {
     updateConnectionStatus(true);
-    console.log('Connected to server with ID:', socket.id);
-
     if (state.localUsername && state.localKeyPair && state.localPublicJwk) {
         socket.emit('register-user', { username: state.localUsername, publicKey: state.localPublicJwk });
-    } else {
-        const restored = await autoLoginFromStorage();
-        if (restored && state.localUsername && state.localPublicJwk) {
-            socket.emit('register-user', { username: state.localUsername, publicKey: state.localPublicJwk });
-        }
     }
 });
 
 socket.on('disconnect', () => {
     updateConnectionStatus(false);
-    state.peerSessions.clear();
-    state.currentPeerId = null;
-    state.currentPeerUsername = '';
-    updateChatHeader();
-    displayMessage('Connection lost. Please rejoin the lobby.', 'system-error');
 });
 
 socket.on('active-users', (users) => {
     state.activeUsers = users;
-    renderLobby();
+    renderActiveUsers();
 
     if (state.currentPeerId && !users.some((user) => user.id === state.currentPeerId)) {
         state.currentPeerId = null;
         state.currentPeerUsername = '';
         state.peerSessions.clear();
         updateChatHeader();
-        showScreen('lobby');
-        displayMessage('Peer left the lobby. Please choose another user.', 'system');
+        state.lastExplanation = null;
+        updateExplanationCardForState();
+        displayMessage('That person left the chat. Pick someone else.', 'system');
+    }
+});
+
+socket.on('toggle-sync', ({ senderId, toggle, enabled }) => {
+    if (!senderId || senderId === socket.id) {
+        return;
+    }
+
+    applyRemoteToggle(toggle, enabled);
+    if (toggle === 'security' && state.currentPeerId === senderId) {
+        showToast(`Your chat partner changed Secure Chat to ${enabled ? 'ON' : 'OFF'}.`);
     }
 });
 
 socket.on('private-message', async (data) => {
-    if (data && data.senderId) {
-        if (data.isPlaintext) {
-            logWirePacket({ senderId: data.senderId, message: data.message, isPlaintext: true }, 'INBOUND');
-        } else if (data.iv && data.ciphertext) {
-            logWirePacket({ senderId: data.senderId, iv: data.iv, ciphertext: data.ciphertext }, 'INBOUND');
-        }
-    }
     await handleIncomingMessage(data);
 });
 
 showScreen('login');
 updateConnectionStatus(false);
-updateSecurityToggle();
-updateHackerToggle();
-updateMathToggle();
+updateToggleButtons();
 updateChatHeader();
-renderLobby();
+updateExplanationCardForState();
+renderLoginState();
+
+const session = loadStoredUserSession();
+if (session) {
+    savedUsernameLabel.textContent = session.username;
+}
 
 (async () => {
-    const restored = await autoLoginFromStorage();
-    if (!restored) {
-        showScreen('login');
+    const restored = loadStoredUserSession();
+    if (restored) {
+        const keyPair = await restoreKeyPairFromStorage(restored);
+        if (keyPair) {
+            state.localUsername = restored.username;
+            state.localKeyPair = keyPair;
+            state.localPublicJwk = restored.publicKeyJwk;
+            activeUserBadge.textContent = `You: ${restored.username}`;
+        }
     }
 })();

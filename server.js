@@ -57,6 +57,23 @@ io.on('connection', (socket) => {
         });
     });
 
+    socket.on('toggle-sync', ({ recipientId, senderId, toggle, enabled }) => {
+        if (!recipientId || !toggle) {
+            return;
+        }
+
+        const recipientSocket = io.sockets.sockets.get(recipientId);
+        if (!recipientSocket) {
+            return;
+        }
+
+        recipientSocket.emit('toggle-sync', {
+            senderId: senderId || socket.id,
+            toggle,
+            enabled: Boolean(enabled)
+        });
+    });
+
     socket.on('disconnect', () => {
         if (users.has(socket.id)) {
             users.delete(socket.id);

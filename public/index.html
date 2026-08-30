@@ -3,78 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E2EE PKI Chat</title>
+    <title>SecureTalk Demo</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="demo-toast" class="toast" aria-live="polite"></div>
-    <div id="app-shell">
-        <section id="login-screen" class="screen active">
-            <div class="panel auth-panel">
-                <p class="eyebrow">Secure Multi-User Chat</p>
-                <h1>Join the PKI Network</h1>
-                <label for="username-input">Username</label>
-                <input id="username-input" type="text" maxlength="24" placeholder="Enter your username" autocomplete="off">
-                <button id="join-button" class="primary-btn">Generate Keys &amp; Join</button>
-            </div>
-        </section>
 
-        <section id="lobby-screen" class="screen hidden">
-            <div class="panel lobby-panel">
-                <div class="topbar">
-                    <div>
-                        <p class="eyebrow">Active users</p>
-                        <h2>Lobby</h2>
-                    </div>
-                    <div class="lobby-actions">
-                        <span id="active-user-badge" class="user-badge">You</span>
-                        <button id="logout-button" class="secondary-btn logout-btn">Logout</button>
-                    </div>
+    <section id="login-screen" class="screen active">
+        <div class="auth-card">
+            <div class="brand">SecureTalk</div>
+            <h1>Private chat with no extra confusion.</h1>
+            <p class="subtitle">Use a simple name and start chatting in seconds.</p>
+
+            <div id="login-form-wrapper">
+                <div id="saved-user-panel" class="saved-user-panel hidden">
+                    <div class="welcome-chip">Welcome back</div>
+                    <button id="welcome-back-button" class="primary-btn large-btn">
+                        Continue as <span id="saved-username-label">Guest</span>
+                    </button>
+                    <button id="different-user-button" class="ghost-btn small-btn">Use a different name</button>
                 </div>
-                <div id="active-users-list" class="user-list"></div>
-            </div>
-        </section>
 
-        <section id="chat-screen" class="screen hidden">
-            <div class="chat-container">
-                <div class="header">
-                    <div class="header-top-row">
-                        <button id="back-to-lobby" class="secondary-btn">Back to Lobby</button>
-                        <h1>Zero-Trust E2EE Chat</h1>
-                        <div class="status-badges">
-                            <span id="connection-status" class="status-indicator disconnected">Disconnected</span>
-                            <span id="fingerprint-badge" class="fingerprint-badge hidden">Safety Fingerprint: --</span>
+                <div id="new-user-form" class="new-user-form">
+                    <label for="username-input">Choose your display name</label>
+                    <input id="username-input" type="text" maxlength="24" placeholder="Enter a name" autocomplete="off">
+                    <button id="join-button" class="primary-btn">Create My ID</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="chat-screen" class="screen hidden">
+        <div class="chat-layout">
+            <aside class="chat-panel">
+                <div class="panel-header">
+                    <div class="brand-row">
+                        <div class="brand small">SecureTalk</div>
+                        <span id="connection-status" class="connection-pill disconnected">Offline</span>
+                    </div>
+                    <button id="logout-button" class="ghost-btn">Log out</button>
+                </div>
+
+                <div class="toolbar">
+                    <button id="security-toggle" class="mode-toggle secure active">🔒 Secure Chat (Encryption)</button>
+                    <button id="hacker-toggle" class="mode-toggle">👾 Simulate Hacker Attack</button>
+                </div>
+
+                <div class="chat-summary">
+                    <div class="chat-summary-row">
+                        <div>
+                            <span class="summary-label">Talking to</span>
+                            <strong id="chat-partner">Pick a person</strong>
                         </div>
-                    </div>
-
-                    <div class="header-controls-row">
-                        <button id="clear-chat-button" class="toggle-btn danger-btn">Clear Chat</button>
-                        <button id="security-toggle" class="toggle-btn active">E2EE Protocol: Enabled</button>
-                        <button id="hacker-toggle" class="toggle-btn">Simulate MITM Interception: OFF</button>
-                        <button id="math-toggle" class="toggle-btn">Cryptographic Pipeline Visualizer: OFF</button>
+                        <button id="clear-chat-button" class="clear-chat-btn" type="button" aria-label="Clear chat history">
+                            🗑️
+                        </button>
                     </div>
                 </div>
 
-                <div class="chat-meta">
-                    <span id="chat-partner">No secure session</span>
+                <div class="people-panel">
+                    <div class="people-header">
+                        <span>People online</span>
+                        <span id="active-user-badge" class="user-pill">You</span>
+                    </div>
+                    <div id="active-users-list" class="people-list"></div>
                 </div>
 
-                <div class="message-log" id="message-log"></div>
+                <div class="composer-wrap">
+                    <div id="message-log" class="message-log"></div>
 
-                <div class="message-input">
-                    <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
-                    <button id="send-button">Send</button>
+                    <div class="composer">
+                        <input id="message-input" type="text" placeholder="Type a message..." autocomplete="off">
+                        <button id="send-button">Send</button>
+                    </div>
                 </div>
+            </aside>
 
-                <div class="wire-sniffer">
-                    <details open>
-                        <summary>Network Payload Analyzer</summary>
-                        <pre id="wire-sniffer-output">No network traffic yet.</pre>
-                    </details>
+            <aside class="info-panel">
+                <div class="info-header">
+                    <div class="info-icon">🔐</div>
+                    <h2>What’s happening</h2>
                 </div>
-            </div>
-        </section>
-    </div>
+                <div id="explanation-card" class="explanation-card neutral">
+                    Choose a person to start a secure conversation.
+                </div>
+            </aside>
+        </div>
+    </section>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>
