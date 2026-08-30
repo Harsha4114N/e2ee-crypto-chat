@@ -1,22 +1,4 @@
 :root {
-    --bg: #f4f7fb;
-    --panel: #ffffff;
-    --panel-soft: #f7f9fc;
-    --stroke: #dfe7f2;
-    --text: #1f2937;
-    --muted: #667085;
-    --primary: #1f9d77;
-    --primary-dark: #177b60;
-    --safe: #eafaf4;
-    --safe-border: #b9ebd7;
-    --danger: #fff1f1;
-    --danger-border: #f7c5c5;
-    --warning: #fff8eb;
-    --warning-border: #f8ddb2;
-    --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-}
-
-:root {
     --bg: #f3f7fb;
     --panel: #ffffff;
     --panel-soft: #f7fafc;
@@ -32,6 +14,11 @@
     --amber-soft: #fff8eb;
     --amber-border: #f5d7a2;
     --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --vault-bg: #0f172a;
+    --vault-panel: #111827;
+    --vault-border: rgba(148, 163, 184, 0.18);
+    --vault-text: #e5eefb;
+    --vault-muted: #9fb2c9;
 }
 
 * {
@@ -171,7 +158,9 @@ button {
 .ghost-btn,
 .mode-toggle,
 #send-button,
-.user-action-btn {
+.user-action-btn,
+.wallet-btn,
+.close-wallet {
     border: none;
     border-radius: 14px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -190,7 +179,9 @@ button {
 .ghost-btn:hover,
 .mode-toggle:hover,
 #send-button:hover,
-.user-action-btn:hover {
+.user-action-btn:hover,
+.wallet-btn:hover,
+.close-wallet:hover {
     transform: translateY(-1px);
 }
 
@@ -203,7 +194,8 @@ button {
     align-self: flex-start;
 }
 
-.ghost-btn {
+.ghost-btn,
+.wallet-btn {
     background: #f3f7fb;
     color: #2d3d52;
     border: 1px solid var(--stroke);
@@ -372,6 +364,13 @@ button {
     font-weight: 700;
 }
 
+.user-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .user-pill {
     display: inline-flex;
     justify-content: center;
@@ -383,6 +382,15 @@ button {
     border: 1px solid var(--green-border);
     font-size: 0.72rem;
     font-weight: 800;
+}
+
+.wallet-btn {
+    font-size: 0.72rem;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #e8f2ff;
+    border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .people-list {
@@ -426,7 +434,7 @@ button {
     flex: 1;
     flex-direction: column;
     min-height: 0;
-    padding: 0 20px 20px;
+    padding: 0 20px 12px;
 }
 
 .message-log {
@@ -514,6 +522,18 @@ button {
     border-radius: 12px;
 }
 
+.protocol-status-bar {
+    border-top: 1px solid var(--stroke);
+    background: linear-gradient(180deg, #f8fafc 0%, #eef4f9 100%);
+    color: #51637a;
+    text-align: center;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+}
+
 .info-panel {
     display: flex;
     flex-direction: column;
@@ -585,6 +605,94 @@ button {
     font-weight: 800;
 }
 
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+    margin-top: 6px;
+}
+
+.timeline::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: rgba(30, 168, 116, 0.35);
+}
+
+.timeline-step {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.step-marker {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1ea874 0%, #0f915d 100%);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(30, 168, 116, 0.2);
+}
+
+.step-body {
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(30, 168, 116, 0.18);
+    padding: 12px 14px;
+}
+
+.tamper-note {
+    margin-top: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #9f1239;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.step-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #117a5f;
+    margin-bottom: 6px;
+}
+
+.step-body p {
+    margin: 0;
+    font-size: 0.96rem;
+    line-height: 1.6;
+    color: #1e2a39;
+}
+
+.code-snippet {
+    display: inline-block;
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #dceaf8;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+    font-size: 0.74rem;
+    word-break: break-all;
+}
+
 .toast {
     position: fixed;
     top: 18px;
@@ -610,6 +718,105 @@ button {
     transform: translateX(-50%) translateY(0);
 }
 
+.wallet-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wallet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.7);
+    backdrop-filter: blur(8px);
+}
+
+.wallet-dialog {
+    position: relative;
+    width: min(92vw, 760px);
+    max-height: min(80vh, 780px);
+    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+    border: 1px solid var(--vault-border);
+    border-radius: 22px;
+    box-shadow: 0 30px 80px rgba(2, 6, 23, 0.45);
+    color: var(--vault-text);
+    overflow: hidden;
+}
+
+.wallet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid var(--vault-border);
+}
+
+.wallet-kicker {
+    color: #9bb5d3;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.wallet-header h3 {
+    margin: 0;
+    font-size: 1.6rem;
+    color: #eef6ff;
+}
+
+.close-wallet {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.12);
+    color: white;
+    font-size: 1.7rem;
+    line-height: 1;
+    padding: 0;
+    border: 1px solid var(--vault-border);
+}
+
+.wallet-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px 22px 22px;
+    max-height: min(70vh, 620px);
+    overflow-y: auto;
+}
+
+.wallet-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wallet-item label {
+    font-weight: 700;
+    color: #dbeafe;
+    font-size: 0.9rem;
+}
+
+.wallet-value {
+    margin: 0;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #d8ebff;
+    font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+    font-size: 0.77rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 @media (max-width: 900px) {
     body {
         padding: 18px;
@@ -618,186 +825,12 @@ button {
     .chat-layout {
         grid-template-columns: 1fr;
     }
-}
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-    line-height: 1.5;
-    border: 1px solid transparent;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22);
-    animation: fadeIn 0.2s ease;
+
+    .wallet-dialog {
+        width: min(96vw, 760px);
+    }
 }
 
-.message-text {
-    display: block;
-    font-weight: 500;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.message-item.sent {
-    align-self: flex-end;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
-    border-color: rgba(96, 165, 250, 0.35);
-    border-bottom-right-radius: 6px;
-}
-
-.message-item.sent-plaintext,
-.message-item.received-plaintext {
-    background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
-    color: #4b2e00;
-    border-color: rgba(245, 158, 11, 0.4);
-    box-shadow: 0 8px 18px rgba(217, 119, 6, 0.15);
-}
-
-.message-item.sent-plaintext {
-    align-self: flex-end;
-    border-bottom-right-radius: 6px;
-}
-
-.message-item.received-plaintext {
-    align-self: flex-start;
-    border-bottom-left-radius: 6px;
-}
-
-.message-item.received {
-    align-self: flex-start;
-    background: linear-gradient(180deg, #e2e8f0 0%, #dbeafe 100%);
-    color: #111827;
-    border-color: rgba(148, 163, 184, 0.28);
-    border-bottom-left-radius: 6px;
-}
-
-.message-item.system {
-    align-self: center;
-    background: rgba(148, 163, 184, 0.08);
-    color: #cbd5e1;
-    border: 1px dashed rgba(148, 163, 184, 0.25);
-    max-width: 90%;
-    text-align: center;
-}
-
-.message-item.system-error {
-    align-self: center;
-    background: rgba(239, 68, 68, 0.12);
-    color: #fecaca;
-    border: 1px dashed rgba(239, 68, 68, 0.35);
-    max-width: 90%;
-    text-align: center;
-}
-
-.message-item.plaintext-warning {
-    border-left: 5px solid rgba(245, 158, 11, 0.9);
-}
-
-.crypto-inspector {
-    margin-top: 12px;
-    background: rgba(2, 6, 23, 0.82);
-    border: 1px solid rgba(244, 114, 182, 0.25);
-    border-left: 4px solid #f472b6;
-    border-radius: 12px;
-    padding: 10px 12px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 0.76rem;
-    color: #dbeafe;
-    word-break: break-word;
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-}
-
-.crypto-pipeline-title {
-    display: block;
-    color: #f9a8d4;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
-}
-
-.crypto-pipeline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    font-family: 'Consolas', 'Courier New', monospace;
-    color: #f8fafc;
-}
-
-.flow-term,
-.flow-box {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(59, 130, 246, 0.12);
-    border: 1px solid rgba(96, 165, 250, 0.28);
-    color: #dbeafe;
-    font-weight: 700;
-}
-
-.flow-box {
-    background: rgba(168, 85, 247, 0.12);
-    border-color: rgba(192, 132, 252, 0.35);
-    color: #e9d5ff;
-}
-
-.flow-arrow {
-    color: #67e8f9;
-    font-size: 1.1rem;
-    font-weight: 700;
-}
-
-.crypto-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: #cbd5e1;
-    font-family: 'Consolas', 'Courier New', monospace;
-    word-break: break-all;
-}
-
-.crypto-meta strong {
-    color: #f9a8d4;
-}
-
-.message-input {
-    position: sticky;
-    bottom: 0;
-    display: flex;
-    gap: 12px;
-    padding: 16px 20px 18px;
-    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-    border-top: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.message-input input {
-    flex: 1;
-    border-radius: 24px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(15, 23, 42, 0.55);
-    color: white;
-    padding: 12px 18px;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.message-input input::placeholder {
-    color: #94a3b8;
-}
-
-.message-input input:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
-}
-
-#send-button {
-    min-width: 110px;
     padding: 12px 18px;
 }
 

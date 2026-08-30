@@ -64,7 +64,10 @@
                 <div class="people-panel">
                     <div class="people-header">
                         <span>People online</span>
-                        <span id="active-user-badge" class="user-pill">You</span>
+                        <div class="user-header-actions">
+                            <span id="active-user-badge" class="user-pill">You</span>
+                            <button id="key-wallet-button" class="wallet-btn" type="button">View Cryptographic Keys</button>
+                        </div>
                     </div>
                     <div id="active-users-list" class="people-list"></div>
                 </div>
@@ -76,6 +79,10 @@
                         <input id="message-input" type="text" placeholder="Type a message..." autocomplete="off">
                         <button id="send-button">Send</button>
                     </div>
+                </div>
+
+                <div id="protocol-status-bar" class="protocol-status-bar">
+                    Protected by ECDH P-256 Key Exchange &amp; AES-256-GCM Encryption.
                 </div>
             </aside>
 
@@ -90,6 +97,36 @@
             </aside>
         </div>
     </section>
+
+    <div id="key-wallet-modal" class="wallet-modal hidden" aria-hidden="true">
+        <div class="wallet-backdrop" data-close-wallet="true"></div>
+        <div class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-title">
+            <div class="wallet-header">
+                <div>
+                    <div class="wallet-kicker">Session Security</div>
+                    <h3 id="wallet-title">Cryptographic Key Wallet</h3>
+                </div>
+                <button id="close-key-wallet" class="close-wallet" type="button" aria-label="Close key wallet">×</button>
+            </div>
+
+            <div class="wallet-stack">
+                <div class="wallet-item">
+                    <label>Your ECDH Private Key (Never leaves this device)</label>
+                    <pre id="key-wallet-private" class="wallet-value">Not available yet.</pre>
+                </div>
+
+                <div class="wallet-item">
+                    <label>Your ECDH Public Key (Shared with server)</label>
+                    <pre id="key-wallet-public" class="wallet-value">Not available yet.</pre>
+                </div>
+
+                <div class="wallet-item">
+                    <label>AES-GCM Shared Secret (Derived via Diffie-Hellman)</label>
+                    <pre id="key-wallet-secret" class="wallet-value">No active shared secret yet.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>

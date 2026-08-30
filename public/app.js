@@ -54,7 +54,13 @@ const hackerToggle = document.getElementById('hacker-toggle');
 const clearChatButton = document.getElementById('clear-chat-button');
 const logoutButton = document.getElementById('logout-button');
 const explanationCard = document.getElementById('explanation-card');
+const keyWalletButton = document.getElementById('key-wallet-button');
+const keyWalletModal = document.getElementById('key-wallet-modal');
+const closeKeyWalletButton = document.getElementById('close-key-wallet');
 const toast = document.getElementById('demo-toast');
+const keyWalletPrivate = document.getElementById('key-wallet-private');
+const keyWalletPublic = document.getElementById('key-wallet-public');
+const keyWalletSecret = document.getElementById('key-wallet-secret');
 
 const state = {
     activeUsers: [],
@@ -238,17 +244,75 @@ function setExplanationForPlaintext(rawMessage) {
     updateExplanationCardForState();
 }
 
-function setExplanationForEncrypted(ciphertext, originalMessage) {
+function buildSecureTimeline(direction, ciphertext, plaintext, isTampered = false) {
     const safeCiphertext = String(ciphertext || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeMessage = String(originalMessage || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safePlaintext = String(plaintext || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    if (direction === 'sent') {
+        const hackerNote = isTampered
+            ? '<div class="tamper-note">Hacker Mode: This message will be altered in transit.</div>'
+            : '';
+
+        return `
+            <div class="timeline">
+                <div class="timeline-step">
+                    <span class="step-marker">1</span>
+                    <div class="step-body">
+                        <span class="step-tag">Step 1</span>
+                        <p>The Secret Handshake: Your device and their device mathematically created a shared password without ever sending it over the internet.</p>
+                    </div>
+                </div>
+                <div class="timeline-step">
+                    <span class="step-marker">2</span>
+                    <div class="step-body">
+                        <span class="step-tag">Step 2</span>
+                        <p>The Digital Lock: Your message was scrambled using that shared password.</p>
+                    </div>
+                </div>
+                <div class="timeline-step">
+                    <span class="step-marker">3</span>
+                    <div class="step-body">
+                        <span class="step-tag">Step 3</span>
+                        <p>What the Internet Sees: <strong>${safeCiphertext}</strong>.</p>
+                        ${hackerNote}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="timeline">
+            <div class="timeline-step">
+                <span class="step-marker">1</span>
+                <div class="step-body">
+                    <span class="step-tag">Step 1</span>
+                    <p>Received Scrambled Text: <strong>${safeCiphertext}</strong>.</p>
+                </div>
+            </div>
+            <div class="timeline-step">
+                <span class="step-marker">2</span>
+                <div class="step-body">
+                    <span class="step-tag">Step 2</span>
+                    <p>The Secret Handshake: Your device used its own private key to recreate the exact same shared password.</p>
+                </div>
+            </div>
+            <div class="timeline-step">
+                <span class="step-marker">3</span>
+                <div class="step-body">
+                    <span class="step-tag">Step 3</span>
+                    <p>The Unlock: The lock matched perfectly, proving nobody tampered with it, and the text was unscrambled.</p>
+                    <span class="code-snippet">Plain text: ${safePlaintext}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setExplanationForEncrypted(ciphertext, originalMessage, direction = 'sent', isTampered = false) {
     state.lastExplanation = {
         mode: 'safe',
-        detailText: `
-            <strong>Encryption is ON.</strong> The message was locked before leaving the computer.<br><br>
-            <strong>What the Hacker sees:</strong> ${safeCiphertext}<br><br>
-            <strong>How it worked:</strong> ${safeMessage} + Secret Key = Unreadable Text.
-        `
+        detailText: buildSecureTimeline(direction, ciphertext, originalMessage, isTampered)
     };
 
     updateExplanationCardForState();
@@ -370,6 +434,49 @@ function renderActiveUsers() {
             startSecureChat(button.dataset.peerId, button.dataset.peerName);
         });
     });
+}
+
+function setKeyWalletVisibility(isOpen) {
+    keyWalletModal.classList.toggle('hidden', !isOpen);
+    keyWalletModal.setAttribute('aria-hidden', String(!isOpen));
+}
+
+function truncateForDisplay(value, maxLength = 84) {
+    if (!value) {
+        return 'Not available yet.';
+    }
+
+    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
+async function renderKeyWallet() {
+    const fallbackSession = loadStoredUserSession();
+    const privateKey = state.localKeyPair
+        ? await crypto.subtle.exportKey('jwk', state.localKeyPair.privateKey)
+        : fallbackSession?.privateKeyJwk || null;
+    const publicKey = state.localKeyPair
+        ? await crypto.subtle.exportKey('jwk', state.localKeyPair.publicKey)
+        : fallbackSession?.publicKeyJwk || null;
+
+    keyWalletPrivate.textContent = privateKey ? truncateForDisplay(JSON.stringify(privateKey, null, 2), 280) : 'Not available yet.';
+    keyWalletPublic.textContent = publicKey ? JSON.stringify(publicKey, null, 2) : 'Not available yet.';
+
+    const peerSession = state.currentPeerId ? state.peerSessions.get(state.currentPeerId) : null;
+    if (peerSession && peerSession.sharedSecret) {
+        try {
+            const rawSecret = await crypto.subtle.exportKey('raw', peerSession.sharedSecret);
+            const hex = Array.from(new Uint8Array(rawSecret))
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('');
+            keyWalletSecret.textContent = `${hex.slice(0, 96)}${hex.length > 96 ? '…' : ''}\n\nDerived from the ECDH shared secret and used as the AES-GCM key.`;
+        } catch (error) {
+            console.error('Failed to export shared secret:', error);
+            keyWalletSecret.textContent = 'Shared secret is present in memory but could not be exported for display.';
+        }
+    } else {
+        keyWalletSecret.textContent = 'No active shared secret yet. Start a secure chat to derive the AES-GCM key.';
+    }
 }
 
 async function deriveSessionWithPeer(peerId) {
@@ -501,21 +608,21 @@ async function handleEncryptedSend(message) {
             encodedMessage
         );
 
-        let ciphertextBase64 = bufferToBase64(ciphertextBuffer);
-        if (state.hackerEnabled) {
-            ciphertextBase64 = tamperCiphertext(ciphertextBase64);
-        }
+        const originalCiphertextBase64 = bufferToBase64(ciphertextBuffer);
+        const outgoingCiphertextBase64 = state.hackerEnabled
+            ? tamperCiphertext(originalCiphertextBase64)
+            : originalCiphertextBase64;
 
         socket.emit('private-message', {
             recipientId: state.currentPeerId,
             senderId: socket.id,
             iv: bufferToBase64(iv),
-            ciphertext: ciphertextBase64
+            ciphertext: outgoingCiphertextBase64
         });
 
         displayMessage(`You: ${message}`, 'sent');
         appendMessageToHistory(state.currentPeerUsername, `You: ${message}`, 'sent');
-        setExplanationForEncrypted(ciphertextBase64, message);
+        setExplanationForEncrypted(originalCiphertextBase64, message, 'sent', state.hackerEnabled);
         messageInput.value = '';
     } catch (error) {
         console.error('Encryption failed:', error);
@@ -562,13 +669,13 @@ async function handleIncomingMessage(data) {
         const renderedMessage = `${senderUsername}: ${plaintext}`;
         displayMessage(renderedMessage, 'received');
         appendMessageToHistory(state.currentPeerUsername || senderUsername, renderedMessage, 'received');
-        setExplanationForEncrypted(incomingData.ciphertext, plaintext);
+        setExplanationForEncrypted(incomingData.ciphertext, plaintext, 'received');
     } catch (error) {
         console.error('Decryption failed:', error);
         displayMessage('The encrypted message was rejected.', 'system-error');
         state.lastExplanation = {
             mode: 'warning',
-            detailText: '<strong>Hacker tampered with the locked message in transit!</strong> Because the lock was broken, the receiver\'s phone rejected it automatically.'
+            detailText: '<strong>Decryption Blocked!</strong> The message was altered by a hacker in transit. Your device detected that the mathematical lock was broken and rejected the message to keep you safe.'
         };
         updateExplanationCardForState();
     }
@@ -619,6 +726,24 @@ logoutButton.addEventListener('click', () => {
     state.lastExplanation = null;
     updateExplanationCardForState();
     window.location.reload();
+});
+
+keyWalletButton.addEventListener('click', async () => {
+    await renderKeyWallet();
+    setKeyWalletVisibility(true);
+});
+
+closeKeyWalletButton.addEventListener('click', () => setKeyWalletVisibility(false));
+keyWalletModal.addEventListener('click', (event) => {
+    if (event.target && event.target.dataset && event.target.dataset.closeWallet === 'true') {
+        setKeyWalletVisibility(false);
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !keyWalletModal.classList.contains('hidden')) {
+        setKeyWalletVisibility(false);
+    }
 });
 
 securityToggle.addEventListener('click', () => {
@@ -738,6 +863,7 @@ updateToggleButtons();
 updateChatHeader();
 updateExplanationCardForState();
 renderLoginState();
+setKeyWalletVisibility(false);
 
 const session = loadStoredUserSession();
 if (session) {
