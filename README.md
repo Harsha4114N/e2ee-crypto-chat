@@ -1,7 +1,7 @@
 # Zero-Trust E2EE Chat Application
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://e2ee-crypto-chat.onrender.com)
-[![LinkedIn Post](https://img.shields.io/badge/Demonstration-LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/feed/update/urn:li:activity:7506742088198430720/)
+[![LinkedIn Post](https://img.shields.io/badge/Demonstration-LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)]([https://www.linkedin.com/feed/update/urn:li:activity:7506742088198430720/](https://www.linkedin.com/feed/update/urn:li:activity:7506745475916550144/))
 [![GitHub Repo](https://img.shields.io/badge/Source_Code-GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Harsha4114N/e2ee-crypto-chat)
 
 A decentralized, Zero-Trust chat application demonstrating client-side cryptographic engineering. It utilizes a blind Node.js/Socket.io relay backend that routes traffic without ever accessing plaintext. All cryptographic operations—key generation, shared secret derivation, and payload encryption—occur strictly client-side via the browser's native Web Crypto API.
