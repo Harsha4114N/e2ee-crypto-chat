@@ -13,7 +13,7 @@ A decentralized, Zero-Trust chat application demonstrating client-side cryptogra
 
 
 * **Live Deployment:** [https://e2ee-crypto-chat.onrender.com](https://e2ee-crypto-chat.onrender.com)
-* **Architecture Walkthrough:** [Watch the demo video on LinkedIn]([https://www.linkedin.com/feed/update/urn:li:activity:7506742088198430720/](https://lnkd.in/p/g-Av_hYn))
+* **Architecture Walkthrough:** [Watch the demo video on LinkedIn][https://www.linkedin.com/feed/update/urn:li:activity:7506742088198430720/](https://lnkd.in/p/g-Av_hYn)
 
 ---
 
