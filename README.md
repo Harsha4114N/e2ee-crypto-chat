@@ -51,6 +51,3 @@ E2EE Protocol Active: Toggle Security ON to demonstrate AES-256-GCM encryption a
 Integrity Enforcement: Enable the Hacker Simulator to inject bit errors in transit, demonstrating how Galois/Counter Mode mathematically detects tampered ciphertext and blocks decryption.
 
 
-
-https://github.com/user-attachments/assets/de855e78-c3f1-45bc-b4a8-cf3a360c2583
-
